@@ -1,82 +1,115 @@
-// content.js - Detector de teclado para SmartNotes
+// content.js - Lógica del DOM y Puente de Comunicación
 
-// Variable global para almacenar el texto que el usuario escribe después del '/'
 let palabraClave = "";
 let escuchandoDisparador = false;
+let popoverElement = null; // Guardará la referencia al menú flotante en el DOM
 
-// Escuchamos el evento keydown en todo el documento
 document.addEventListener('keydown', (event) => {
     const tecla = event.key;
     const elementoActivo = document.activeElement;
 
-    // Verificamos si el usuario está escribiendo en un campo editable (input, textarea o contenteditable)
     const esCampoEditable = elementoActivo && (
         elementoActivo.tagName === 'INPUT' ||
         elementoActivo.tagName === 'TEXTAREA' ||
         elementoActivo.isContentEditable
     );
 
-    if (!esCampoEditable) return; // Si no está editando nada, ignoramos la pulsación
+    if (!esCampoEditable) return;
 
-    // CASO 1: Detectar el inicio del disparador
     if (tecla === '/') {
         escuchandoDisparador = true;
-        palabraClave = ""; // Reiniciamos la palabra clave
-        console.log("🎯 SmartNotes: Se detectó el prefijo '/'. Iniciando escucha...");
+        palabraClave = "";
         return;
     }
 
-    // CASO 2: Si ya estamos escuchando, capturamos las letras que siguen
     if (escuchandoDisparador) {
-
-        // Si presiona espacio o escape, cancelamos la escucha de la nota
         if (tecla === ' ' || tecla === 'Escape') {
-            escuchandoDisparador = false;
-            palabraClave = "";
-            console.log("❌ SmartNotes: Escucha cancelada por espacio o escape.");
+            cerrarPopover();
             return;
         }
 
-        // Si presiona la tecla de borrar (Backspace), eliminamos el último carácter
         if (tecla === 'Backspace') {
             palabraClave = palabraClave.slice(0, -1);
             if (palabraClave === "") {
-                // Si borra hasta llegar de nuevo al '/', limpiamos todo
-                escuchandoDisparador = false;
+                cerrarPopover();
+            } else {
+                solicitarNotasAlServidorLocal(palabraClave, elementoActivo);
             }
-            console.log("✏️ SmartNotes: Buscando actual:", palabraClave);
             return;
         }
 
-        // Capturamos solo caracteres alfanuméricos simples (letras y números de un solo dígito de longitud)
         if (tecla.length === 1 && /^[a-zA-Z0-9]+$/.test(tecla)) {
             palabraClave += tecla;
-            console.log("🔎 SmartNotes: Palabra clave incremental:", palabraClave);
-
-            // TODO: Aquí llamaremos a la función que le pide las notas filtradas al Service Worker
-
-            // LLAMADA AL PUENTE DE COMUNICACIÓN
-            solicitarNotasAlServidorLocal(palabraClave);
+            solicitarNotasAlServidorLocal(palabraClave, elementoActivo);
         }
     }
 });
 
-// Función que envía el mensaje al Service Worker (background.js)
-function solicitarNotasAlServidorLocal(query) {
-    console.log(`📡 Enviando consulta al Service Worker: "${query}"`);
-
+// Envía el mensaje y gestiona la respuesta para pintar la UI
+function solicitarNotasAlServidorLocal(query, elementoActivo) {
     chrome.runtime.sendMessage(
         { action: "search_notes", query: query },
         (response) => {
-            if (chrome.runtime.lastError) {
-                console.error("⚠️ Error en el puente de comunicación:", chrome.runtime.lastError.message);
-                return;
-            }
+            if (chrome.runtime.lastError) return;
 
-            if (response && response.results) {
-                console.log("📥 Notas recibidas desde el Service Worker:", response.results);
-                // TODO: Aquí pasaremos el arreglo de notas a la función que pintará el menú flotante
+            if (response && response.results && response.results.length > 0) {
+                // Dibujar o actualizar el menú flotante en pantalla
+                renderizarPopover(response.results, elementoActivo);
+            } else {
+                // Si no hay resultados que coincidan, ocultamos el menú
+                cerrarPopover();
             }
         }
     );
+}
+
+// CREACIÓN E INYECCIÓN DINÁMICA DEL POPOVER EN EL DOM
+function renderizarPopover(notas, elementoActivo) {
+    // Si el popover no existe en el DOM, lo creamos e inyectamos al <body>
+    if (!popoverElement) {
+        popoverElement = document.createElement('div');
+        popoverElement.className = 'smartnotes-popover';
+        document.body.appendChild(popoverElement);
+    }
+
+    // Limpiamos el contenido anterior para llenarlo con los nuevos resultados
+    popoverElement.innerHTML = '';
+
+    // Creamos el contenedor de la lista
+    const lista = document.createElement('ul');
+    lista.className = 'smartnotes-list';
+
+    notas.forEach((nota, index) => {
+        const item = document.createElement('li');
+        item.className = 'smartnotes-item';
+        // Simulamos que el primer elemento de la lista está activo por defecto
+        if (index === 0) item.classList.add('active');
+
+        item.innerHTML = `
+            <span class="smartnotes-trigger">/${nota.disparador}</span>
+            <span class="smartnotes-preview">${nota.contenido}</span>
+        `;
+
+        lista.appendChild(item);
+    });
+
+    popoverElement.appendChild(lista);
+
+    // POSICIONAMIENTO GEOMÉTRICO DINÁMICO
+    // Obtenemos las coordenadas y dimensiones de la caja de texto activa del CRM
+    const rect = elementoActivo.getBoundingClientRect();
+
+    // Posicionamos el popover justo debajo del cuadro de texto, sumando el scroll actual de la página
+    popoverElement.style.top = `${rect.bottom + window.scrollY + 5}px`;
+    popoverElement.style.left = `${rect.left + window.scrollX}px`;
+    popoverElement.style.display = 'block';
+}
+
+// Función limpia para remover el elemento cuando no se necesite
+function cerrarPopover() {
+    escuchandoDisparador = false;
+    palabraClave = "";
+    if (popoverElement) {
+        popoverElement.style.display = 'none';
+    }
 }

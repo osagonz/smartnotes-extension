@@ -1,0 +1,60 @@
+/* styles.css - Estilos del Popover de SmartNotes */
+
+/* Contenedor principal inyectado en el body */
+.smartnotes-popover {
+    position: absolute;
+    background-color: #ffffff !important; /* Fondo blanco requerido */
+    border: 1px solid #cccccc !important; /* Línea gris de contorno */
+    border-radius: 6px !important;        /* Bordes redondeados */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 100000 !important;           /* Por encima de cualquier CRM */
+    font-family: 'Calibri', 'Segoe UI', Arial, sans-serif !important;
+    width: 280px;
+    max-height: 250px;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+/* Contenedor de la lista */
+.smartnotes-list {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Ítems individuales de la lista (las notas) */
+.smartnotes-item {
+    padding: 8px 12px !important;
+    border-bottom: 1px solid #eaeaea !important;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    background-color: #ffffff;
+}
+
+.smartnotes-item:last-child {
+    border-bottom: none !important;
+}
+
+/* El disparador de la nota (ej: /gracias) */
+.smartnotes-trigger {
+    display: block !important;
+    font-size: 14px !important;
+    font-weight: bold !important;
+    color: #000000 !important; /* Texto negro sencillo */
+}
+
+/* La vista previa del texto largo */
+.smartnotes-preview {
+    display: block !important;
+    font-size: 12px !important;
+    color: #555555 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Corta el texto largo con puntos suspensivos */
+}
+
+/* REGLA DE DISEÑO: Al seleccionar el botón/ítem, alumbra en azul claro */
+.smartnotes-item.active {
+    background-color: #e6f4ff !important; /* Azul claro solicitado */
+    border-left: 3px solid #1890ff !important; /* Resalte azul rey */
+}
